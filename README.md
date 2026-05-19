@@ -6,6 +6,53 @@
 
 ---
 
+<a id="authors"></a>
+👾 Authors
+
+<p align="center">
+<img src="https://capsule-render.vercel.app/api?type=rect&height=4&color=0:FF6B35,50:00D4AA,100:B388FF"/>
+</p>
+
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="33%">
+        <img width="420" height="420" alt="Nisarg" src="https://github.com/user-attachments/assets/8de9e0f9-4c1c-407b-8041-9bf67596e040" />
+        <br/>
+        <strong>Nisarg Chasmawala · HEAVEN</strong>
+        <br/>
+        <sub>Pen-Tester / Cybersecurity Engineer</sub>
+        <br/>
+        <a href="https://github.com/nishu2402"><img src="https://img.shields.io/badge/GitHub-Profile-FF6B35?style=flat-square&logo=github&logoColor=white" alt="GitHub"/></a>
+        <a href="https://www.linkedin.com/in/nisarg-chasmawala"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"/></a>
+      </td>
+      <td align="center" width="33%">
+        <img width="420" height="560" alt="Jatin" src="https://github.com/user-attachments/assets/b819a47b-0460-4098-b98f-4cf8b1189f9a" />
+        <br/>
+        <strong>Jatin Kumar</strong>
+        <br/>
+        <sub>Cybersecurity & Full-Stack Engineer</sub>
+        <br/>
+        <a href="https://github.com/Jatinkumar78"><img src="https://img.shields.io/badge/GitHub-Profile-FF6B35?style=flat-square&logo=github&logoColor=white" alt="GitHub"/></a>
+        <a href="https://www.linkedin.com/in/jatinkumar78"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"/></a>
+      </td>
+      <td align="center" width="33%">
+        <img width="420" height="560" alt="Santhakumar" src="https://github.com/user-attachments/assets/adcb474e-68ed-4980-8110-66025d13b864" />
+        <br/>
+        <strong>Santhakumar Parivalla</strong>
+        <br/>
+        <sub>Cybersecurity Engineer</sub>
+        <br/>
+        <a href="https://github.com/SanthakumarParivallal"><img src="https://img.shields.io/badge/GitHub-Profile-FF6B35?style=flat-square&logo=github&logoColor=white" alt="GitHub"/></a>
+        <a href="https://www.linkedin.com/in/santhakumar-parivallal-81307230a"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"/></a>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## 1 · The Problem
 
 > In 2024 the UK water industry was fined **£168 million** for breaching § 82 of the Water Industry Act. Storm overflows are now a top-five political issue.
