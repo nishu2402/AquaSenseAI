@@ -1,0 +1,21 @@
+{
+  "name": "aquasense-ai-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AquaSense AI v1.0.0 · Operator console · React 18 · Tailwind · Leaflet · WS live telemetry",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

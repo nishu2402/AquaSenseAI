@@ -1,0 +1,20 @@
+{
+  "name": "aquasense-ai-backend",
+  "version": "1.0.0",
+  "description": "AquaSense AI · Proactive wastewater compliance API · IoT pipeline · SHA-256 ledger · zero-trust edge auth",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.20.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

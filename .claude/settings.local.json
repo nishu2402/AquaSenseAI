@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check backend/server.js)",
+      "Bash(timeout 30 npx vite build --logLevel error)",
+      "Bash(npx vite *)",
+      "Bash(npm install *)",
+      "Read(//Users/jay/Documents/**)",
+      "Bash(rm -rf frontend/dist)",
+      "Bash(xargs -I{} echo \"✓ frontend build: {} JS bundle\")",
+      "Bash(node shoot2.js)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:4000/api/health)",
+      "Bash(curl -s http://localhost:5173/)"
+    ]
+  }
+}
