@@ -596,7 +596,7 @@ X-RateLimit-Limit / -Remaining / -Reset
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/github/stars/nishu2402/aquasense-ai-platform?style=social" alt="Stars"/>
-<img src="https://img.shields.io/github/forks/nishu2402/aquasense-ai-platform?style=social" alt="Forks"/>
-<img src="https://img.shields.io/github/watchers/nishu2402/aquasense-ai-platform?style=social" alt="Watchers"/>
+<img src="https://img.shields.io/github/stars/nishu2402/AquaSenseAI?style=social" alt="Stars"/>
+<img src="https://img.shields.io/github/forks/nishu2402/AquaSenseAI?style=social" alt="Forks"/>
+<img src="https://img.shields.io/github/watchers/nishu2402/AquaSenseAI?style=social" alt="Watchers"/>
 </p>
