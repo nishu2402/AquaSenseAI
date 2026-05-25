@@ -736,7 +736,7 @@ export default function App() {
               <User className="h-3.5 w-3.5 text-zinc-300" />
             </div>
             <div className="leading-tight hidden lg:block">
-              <div className="text-[11.5px] text-zinc-200">Jatin Kumar</div>
+              <div className="text-[11.5px] text-zinc-200">Admin</div>
               <div className="text-[10px] text-zinc-500">Compliance Operator</div>
             </div>
           </div>
