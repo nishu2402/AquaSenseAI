@@ -197,6 +197,28 @@ function downloadBlob(content, filename, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
+// Client-side mirror of the backend's computeHealthScore. Used in offline mode
+// so the gauge falls and recovers in sync with the local anomaly ramp.
+function computeLocalHealthScore(reading) {
+  let total = 0, count = 0;
+  for (const key of PARAM_KEYS) {
+    const cfg = METRICS[key];
+    const baseline = cfg.base;
+    let pct;
+    if (typeof cfg.minLimit === "number") {
+      pct = Math.max(
+        (baseline - reading[key]) / Math.max(baseline - cfg.minLimit, 1e-6),
+        (reading[key] - baseline) / Math.max(cfg.maxLimit - baseline, 1e-6),
+      );
+    } else {
+      pct = (reading[key] - baseline) / Math.max(cfg.maxLimit - baseline, 1e-6);
+    }
+    pct = Math.max(0, Math.min(1.3, pct));
+    total += pct; count++;
+  }
+  return Math.max(0, Math.min(100, Math.round(100 * (1 - total / Math.max(count, 1)))));
+}
+
 /* ============================================================
    ROOT COMPONENT
    ============================================================ */
@@ -236,6 +258,11 @@ export default function App() {
   // WebSocket
   const wsRef = useRef(null);
   const [wsConnected, setWsConnected] = useState(false);
+
+  // Ref mirror of siteLive so interval callbacks always read the latest value
+  // (without stale-closure bugs in offline-mode simulation).
+  const siteLiveRef = useRef({});
+  useEffect(() => { siteLiveRef.current = siteLive; }, [siteLive]);
 
   // Global cumulative (carbon, fines)
   const [globalState, setGlobalState] = useState({
@@ -429,17 +456,28 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- Offline-mode simulation (only when WS unavailable) ---------- */
+  /* ---------- Offline-mode simulation (only when WS unavailable) ----------
+     Reads live progress through siteLiveRef so it always sees the latest value
+     (avoiding the stale-closure bug that previously froze health & sensor counts
+     at baseline even while the ramp was in progress). Also computes healthScore
+     and records the local "incident" the same way the backend would. */
+  const localIncidentRecordedRef = useRef({});
   useEffect(() => {
     if (wsConnected) return;
     const id = setInterval(() => {
+      const liveSnapshot = siteLiveRef.current || {};
+      const readingsBySite = {};
+      const healthBySite = {};
+      const newIncidents = {};
+
       setSiteMetrics((prev) => {
         const next = { ...prev };
         for (const siteId of DEFAULT_SITE_IDS) {
           const cur = prev[siteId] || seedSiteMetrics();
-          const live = siteLive[siteId] || {};
+          const live = liveSnapshot[siteId] || {};
           const progress = live.anomalyProgress || 0;
           const newSite = {};
+          const reading = {};
           for (const key of PARAM_KEYS) {
             const cfg = METRICS[key];
             const target = cfg.base + (cfg.anomaly - cfg.base) * progress;
@@ -447,14 +485,75 @@ export default function App() {
             const value = +(target + noise).toFixed(4);
             const prevHist = cur[key]?.history || seedHistory(cfg.base, cfg.variance);
             newSite[key] = { value, history: [...prevHist.slice(1), value] };
+            reading[key] = value;
           }
           next[siteId] = newSite;
+          readingsBySite[siteId] = reading;
+          healthBySite[siteId] = computeLocalHealthScore(reading);
+          // Record a one-shot local incident at the peak of an upward ramp, mirroring backend behaviour.
+          if (live.anomalyActive && progress >= 0.99 && !localIncidentRecordedRef.current[siteId]) {
+            localIncidentRecordedRef.current[siteId] = true;
+            const breached = PARAM_KEYS.filter((k) => METRICS[k].isUnsafe(reading[k]));
+            const stamp = new Date();
+            newIncidents[siteId] = {
+              id: `AQS-${stamp.toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+              siteId,
+              timestamp: stamp.toISOString(),
+              classification: "Industrial Chemical Discharge",
+              classificationKey: "INDUSTRIAL_DISCHARGE",
+              severity: "CRITICAL",
+              confidence: 0.99,
+              suspect: "CHEM-04 industrial estate · 3.2 km upstream",
+              responsePlaybook: "Oxidiser + lime + FeCl₃ coagulant + bypass",
+              recommendations: [],
+              breached,
+              peakReading: reading,
+              durationSec: 9,
+              avoidedPenalty: 250_000,
+              carbonKg: 24.3,
+              riverM3: 18,
+            };
+          }
+          if (!live.anomalyActive && progress < 0.05) {
+            localIncidentRecordedRef.current[siteId] = false;
+          }
         }
         return next;
       });
+
+      // Push computed health + any new incidents back into siteLive so the UI updates.
+      setSiteLive((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const siteId of DEFAULT_SITE_IDS) {
+          const cur = prev[siteId] || {};
+          const h = healthBySite[siteId];
+          const inc = newIncidents[siteId];
+          if (h !== undefined && h !== cur.healthScore) {
+            next[siteId] = { ...cur, healthScore: h };
+            changed = true;
+          }
+          if (inc) {
+            const list = (next[siteId] || cur).incidents || [];
+            next[siteId] = { ...(next[siteId] || cur), incidents: [inc, ...list].slice(0, 10) };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      // Bump global cumulative tallies on a new incident, same as backend.
+      const newCount = Object.keys(newIncidents).length;
+      if (newCount > 0) {
+        setGlobalState((g) => ({
+          ...g,
+          cumulativeFineMitigated: g.cumulativeFineMitigated + newCount * 250_000,
+          carbonRemediatedKg: +(g.carbonRemediatedKg + newCount * 24.3).toFixed(2),
+          riverProtectedM3: g.riverProtectedM3 + newCount * 18,
+        }));
+      }
     }, 1000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wsConnected]);
 
   /* ---------- Local anomaly ramp (offline only) ---------- */

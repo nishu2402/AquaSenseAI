@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "preserve",
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  },
+  "include": ["backend/**/*.js", "frontend/src/**/*.jsx", "frontend/src/**/*.js"],
+  "exclude": ["**/node_modules", "**/dist", "**/build", "**/.git"]
+}

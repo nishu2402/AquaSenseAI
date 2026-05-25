@@ -41,7 +41,13 @@
       "Bash(node -e \"const PDF = require\\('pdfkit'\\); const d = new PDF\\(\\); d.text\\('hello'\\); d.end\\(\\); console.log\\('OK'\\)\")",
       "Bash(curl -s -o /tmp/test.pdf -w \"status:%{http_code} bytes:%{size_download} type:%{content_type}\\\\n\" \"http://localhost:4000/api/compliance-report?format=pdf&siteId=TV-04\")",
       "Read(//tmp/**)",
-      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"stop\",\"siteId\":\"TV-04\"}' http://localhost:4000/api/simulate/anomaly > /dev/null; rm -f /tmp/test.pdf /tmp/vite_out.log /tmp/backend.log /tmp/frontend.log; echo cleaned)"
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"stop\",\"siteId\":\"TV-04\"}' http://localhost:4000/api/simulate/anomaly > /dev/null; rm -f /tmp/test.pdf /tmp/vite_out.log /tmp/backend.log /tmp/frontend.log; echo cleaned)",
+      "Bash(mkdir -p /Users/heaven/Downloads/AquaSenseAI/.vscode && echo created)",
+      "Bash(grep -E \"\\\\.\\(docx|pdf|pptx|DS_Store\\)$\")",
+      "Bash(git -C .claude/worktrees/keen-panini-c739e8 log --oneline main..HEAD)",
+      "Bash(git -C .claude/worktrees/keen-panini-c739e8 status --short)",
+      "Bash(git worktree *)",
+      "Bash(git branch *)"
     ]
   }
 }
