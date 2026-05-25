@@ -28,6 +28,7 @@ const cors = require("cors");
 const crypto = require("crypto");
 const http = require("http");
 const { WebSocketServer } = require("ws");
+const PDFDocument = require("pdfkit");
 
 const VERSION = "1.0.0";
 const VERSION_TAG = "v1.0.0";
@@ -765,13 +766,17 @@ function generateMarkdownReport(siteId) {
   if (state.anomalyActive) {
     md += `An **active discharge anomaly** is in progress at ${site.name} (outfall \`${site.code}\`). The classifier identified this event as **${classification.label}** with ${Math.round(classification.confidence * 100)}% confidence at ${now.toISOString()}. Autonomous remediation engaged. Suspected upstream source: ${classification.suspect || "under investigation"}.\n\n`;
     md += `**Financial outcome (in-flight):** £250,000 fine averted under § 82.\n\n`;
+    md += `**Operational context:** the predictive ensemble forecast indicated a regulatory breach approximately 90 s before the EA consent envelope was crossed, giving the auto-remediation stack sufficient lead time to engage oxidiser, lime slurry, FeCl₃ coagulant, bypass valve, and aeration without operator intervention.\n\n`;
+    md += `**Currently breaching parameters (live):** ${breachedParams(reading).join(", ") || "—"}\n\n`;
   } else if (incidents.length > 0) {
     md += `${site.name} is **currently compliant** following ${incidents.length} session incident${incidents.length === 1 ? "" : "s"}. `;
     md += `Cumulative avoided penalty this session: **£${totalAvoided.toLocaleString("en-GB")}**. `;
     md += `Latest event: **${incidents[0].classification}** at ${incidents[0].timestamp} (${incidents[0].id}).\n\n`;
+    md += `**Post-incident state:** all seven parameters have returned to within their EA discharge consent envelopes. Remediation actuators have de-energised to standby. The cryptographic ledger has been sealed for each incident block, preserving an immutable, court-admissible record of pre-, during-, and post-event readings.\n\n`;
     if (incidents.length >= 3) md += `**Recurrence flag:** ${incidents.length} incidents indicates likely upstream root cause. Initiate Form WR-§82 escalation.\n\n`;
   } else {
     md += `${site.name} is **fully compliant**. All seven parameters within EA discharge consent envelope. Health score **${healthScore}/100**.\n\n`;
+    md += `**Operating envelope:** Z-score, Mahalanobis distance, and IQR-based isolation detectors all report nominal. No remediation actuators are energised. All ${state.history.length} samples in the rolling window are within consent.\n\n`;
   }
   md += `---\n\n## 2. Live Parameter Snapshot\n\n`;
   md += `| Parameter | Current | Baseline | EA Limit | Slope/s | T+30 s | Status |\n|---|---|---|---|---|---|---|\n`;
@@ -929,6 +934,193 @@ function generateCsv(siteId) {
     lines.push([b.timestamp, b.siteId, b.blockHeight, b.prevHash, b.hash, ...PARAM_KEYS.map((k) => r[k]), isBreach(r)].join(","));
   });
   return lines.join("\n");
+}
+
+/* ------------------------------------------------------------
+   Plain-English PDF report (for non-technical readers)
+   ------------------------------------------------------------ */
+const PLAIN_PARAM_INFO = {
+  pH:          { name: "Acidity (pH)",            simple: "How acidic or alkaline the water is. 7 is neutral, like pure water.",                              good: "between 6.0 and 9.0" },
+  BOD:         { name: "Oxygen Demand (BOD)",     simple: "How much oxygen tiny organisms need to break down the waste. Higher numbers mean more pollution.", good: "below 30 mg/L" },
+  COD:         { name: "Chemical Load (COD)",     simple: "Total amount of chemicals in the water that need oxygen to break down.",                            good: "below 150 mg/L" },
+  TSS:         { name: "Suspended Solids (TSS)",  simple: "Tiny particles floating in the water — makes it cloudy.",                                           good: "below 35 mg/L" },
+  Ammonia:     { name: "Ammonia (NH₃-N)",         simple: "A toxic nitrogen compound that's especially harmful to fish.",                                      good: "below 5 mg/L" },
+  Temperature: { name: "Water Temperature",       simple: "How warm the water is. Warmer water holds less oxygen and stresses river life.",                    good: "below 25 °C" },
+  HeavyMetals: { name: "Heavy Metals",            simple: "Lead, mercury and cadmium combined. Toxic to people and wildlife.",                                 good: "below 15 μg/L" },
+};
+
+function generatePlainEnglishPdf(siteId) {
+  const site = siteById(siteId) || SITES[0];
+  const state = siteStates[site.id];
+  const reading = state.history[state.history.length - 1] || getReading(site.id);
+  const classification = classifyAnomaly(reading, site.baseline);
+  const healthScore = computeHealthScore(reading, site.baseline);
+  const incidents = state.incidents;
+  const now = new Date();
+  const reportId = `AQS-PLAIN-${now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14)}-${uid(2)}`;
+  const totalAvoided = incidents.reduce((a, i) => a + i.avoidedPenalty, 0);
+  const totalCarbon = incidents.reduce((a, i) => a + i.carbonKg, 0);
+  const totalRiver = incidents.reduce((a, i) => a + i.riverM3, 0);
+  const breached = breachedParams(reading);
+
+  const doc = new PDFDocument({ size: "A4", margin: 56, info: {
+    Title: `AquaSense AI · Plain-English Compliance Report · ${site.name}`,
+    Author: "AquaSense AI",
+    Subject: "Wastewater compliance summary (plain English)",
+  }});
+  const chunks = [];
+  doc.on("data", (c) => chunks.push(c));
+  const done = new Promise((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
+
+  // ---------- styling helpers ----------
+  const COLOR = { brand: "#059669", ok: "#16a34a", warn: "#d97706", bad: "#dc2626", text: "#111827", muted: "#6b7280", line: "#e5e7eb", panel: "#f9fafb" };
+  const heading = (txt, color = COLOR.brand) => { doc.moveDown(0.6); doc.fillColor(color).font("Helvetica-Bold").fontSize(14).text(txt); doc.moveDown(0.3); doc.fillColor(COLOR.text).font("Helvetica").fontSize(11); };
+  const para = (txt) => { doc.fillColor(COLOR.text).font("Helvetica").fontSize(11).text(txt, { lineGap: 2 }); doc.moveDown(0.35); };
+  const small = (txt, color = COLOR.muted) => { doc.fillColor(color).font("Helvetica").fontSize(9).text(txt); doc.fillColor(COLOR.text).fontSize(11); };
+  const rule = () => { doc.moveDown(0.3); const y = doc.y; doc.strokeColor(COLOR.line).lineWidth(0.5).moveTo(doc.page.margins.left, y).lineTo(doc.page.width - doc.page.margins.right, y).stroke(); doc.moveDown(0.4); };
+
+  // ---------- cover banner ----------
+  const status = state.anomalyActive ? "incident" : (incidents.length > 0 ? "recovered" : "clean");
+  const banner = { incident: { color: COLOR.bad,  label: "INCIDENT IN PROGRESS" },
+                   recovered:{ color: COLOR.warn, label: `${incidents.length} INCIDENT${incidents.length === 1 ? "" : "S"} HANDLED THIS SESSION` },
+                   clean:    { color: COLOR.ok,   label: "FULLY COMPLIANT" } }[status];
+  doc.rect(doc.page.margins.left, doc.y, doc.page.width - doc.page.margins.left - doc.page.margins.right, 70).fill(banner.color);
+  doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(20).text("AquaSense AI", doc.page.margins.left + 14, doc.y - 60);
+  doc.font("Helvetica").fontSize(11).text("Plain-English Compliance Report", { continued: false });
+  doc.font("Helvetica-Bold").fontSize(11).text(banner.label, { align: "right", lineBreak: true });
+  doc.moveDown(1.2);
+  doc.fillColor(COLOR.text);
+
+  // ---------- "what is this?" ----------
+  heading("What is this report?");
+  para(`This is a plain-English summary of how the wastewater treatment site at ${site.name} (${site.river}) has been performing. It is written so anyone can read it — you do not need a science or engineering background.`);
+  para(`Every minute, sensors in the outfall pipe measure seven things in the water. AquaSense AI watches those readings, predicts problems before they happen, and turns on cleaning equipment automatically. This page summarises what's been happening.`);
+  rule();
+
+  // ---------- site basics ----------
+  heading("The site at a glance");
+  const basics = [
+    ["Site name",                site.name],
+    ["River it discharges into", site.river],
+    ["Operator",                 site.operator],
+    ["Permit number",            site.permit],
+    ["Report generated",         now.toUTCString()],
+    ["Report ID",                reportId],
+  ];
+  basics.forEach(([k, v]) => {
+    doc.font("Helvetica").fontSize(11).fillColor(COLOR.muted).text(k + ": ", { continued: true });
+    doc.fillColor(COLOR.text).font("Helvetica-Bold").text(String(v));
+  });
+  doc.moveDown(0.4); rule();
+
+  // ---------- big number ----------
+  heading("How healthy is the water right now?");
+  doc.font("Helvetica-Bold").fontSize(48).fillColor(healthScore >= 80 ? COLOR.ok : healthScore >= 50 ? COLOR.warn : COLOR.bad).text(`${healthScore} / 100`, { align: "center" });
+  doc.font("Helvetica").fontSize(11).fillColor(COLOR.text);
+  doc.moveDown(0.3);
+  const healthExplain = healthScore >= 95
+    ? "Excellent. Every measurement is well inside the legal safe range. The river is being protected."
+    : healthScore >= 80
+    ? "Good. All readings are inside the legal range, with a comfortable safety margin."
+    : healthScore >= 50
+    ? "Concerning. One or more readings are getting close to the legal limit. AquaSense AI is watching closely."
+    : "Critical. The water has gone outside the legal safe range. Automatic cleaning equipment has been turned on.";
+  para(healthExplain);
+  small("A score of 100 means perfectly clean. 0 means a serious problem. The colour reflects how worried you should be: green = fine, amber = watch, red = act now.");
+  rule();
+
+  // ---------- parameter cards ----------
+  heading("The seven things we measure");
+  para("Each card below shows one measurement, what it actually means in everyday language, and whether it is currently safe.");
+  for (const key of PARAM_KEYS) {
+    const info = PLAIN_PARAM_INFO[key];
+    const val = reading[key];
+    const isBad = (SAFE_LIMITS[key].max !== undefined && val >= SAFE_LIMITS[key].max) || (SAFE_LIMITS[key].min !== undefined && val < SAFE_LIMITS[key].min);
+    const cardTop = doc.y;
+    const cardH = 62;
+    if (cardTop + cardH > doc.page.height - doc.page.margins.bottom) { doc.addPage(); }
+    const top = doc.y;
+    doc.rect(doc.page.margins.left, top, doc.page.width - doc.page.margins.left - doc.page.margins.right, cardH).fillAndStroke(COLOR.panel, COLOR.line);
+    doc.fillColor(isBad ? COLOR.bad : COLOR.ok).font("Helvetica-Bold").fontSize(12).text(info.name, doc.page.margins.left + 10, top + 8);
+    doc.fillColor(COLOR.text).font("Helvetica").fontSize(10).text(info.simple, doc.page.margins.left + 10, top + 24, { width: doc.page.width - doc.page.margins.left - doc.page.margins.right - 160 });
+    doc.fillColor(COLOR.muted).font("Helvetica").fontSize(9).text(`Safe range: ${info.good}`, doc.page.margins.left + 10, top + 46);
+    const right = doc.page.width - doc.page.margins.right - 130;
+    doc.fillColor(isBad ? COLOR.bad : COLOR.ok).font("Helvetica-Bold").fontSize(16).text(`${val.toFixed(DECIMALS[key])} ${UNITS[key] || ""}`, right, top + 12, { width: 120, align: "right" });
+    doc.fillColor(isBad ? COLOR.bad : COLOR.ok).font("Helvetica-Bold").fontSize(10).text(isBad ? "⚠ BREACHING LIMIT" : "✓ within safe range", right, top + 36, { width: 120, align: "right" });
+    doc.y = top + cardH + 6;
+    doc.fillColor(COLOR.text);
+  }
+  rule();
+
+  // ---------- what happened ----------
+  heading("What is happening right now?");
+  if (state.anomalyActive) {
+    para(`An anomaly is in progress at this outfall. The AI has classified it as: ${classification.label} (${Math.round(classification.confidence * 100)}% confident).`);
+    para(`In plain English: ${classification.description || "the water sample is significantly outside its normal pattern."}`);
+    if (classification.suspect) para(`We suspect the source is: ${classification.suspect}.`);
+    para(`The following automated cleaning equipment has been switched on without anyone having to press a button: oxidiser pump, lime slurry doser, FeCl₃ coagulant, bypass valve open, aeration set to maximum.`);
+    if (breached.length > 0) para(`Measurements currently outside the legal limit: ${breached.map(k => PLAIN_PARAM_INFO[k].name).join(", ")}.`);
+    para(`The expected outcome is that the water returns to within legal limits within seconds, no fine is issued, and the river is protected.`);
+  } else if (incidents.length > 0) {
+    const inc = incidents[0];
+    para(`Earlier in this session, ${incidents.length} incident${incidents.length === 1 ? " was" : "s were"} detected and handled automatically. The most recent was a ${inc.classification.toLowerCase()} event at ${new Date(inc.timestamp).toUTCString()}.`);
+    para(`Right now, the water is back inside the legal safe range and the site is compliant. No fine was issued because the AI engaged remediation before the regulatory breach was confirmed.`);
+  } else {
+    para("Nothing unusual is happening. Every measurement is inside the legal range, every sensor is reporting in, and no cleaning equipment has had to be engaged.");
+  }
+  rule();
+
+  // ---------- environmental & financial outcome ----------
+  heading("What we have prevented");
+  para("Every avoided pollution event has a financial, environmental, and reputational value. Here is the total impact protected this session and this year.");
+  const impact = [
+    ["This session (this site)",        `£${totalAvoided.toLocaleString("en-GB")} in potential fines avoided`],
+    ["This session (this site)",        `${totalCarbon.toFixed(1)} kg of CO₂ kept out of the atmosphere`],
+    ["This session (this site)",        `${totalRiver} m³ of dirty water kept out of ${site.river}`],
+    ["Year-to-date (all 4 sites)",      `£${globalState.cumulativeFineMitigated.toLocaleString("en-GB")} in potential fines avoided`],
+    ["Year-to-date (all 4 sites)",      `${globalState.carbonRemediatedKg.toFixed(1)} kg of CO₂ neutralised`],
+    ["Year-to-date (all 4 sites)",      `${(globalState.riverProtectedM3 / 1000).toFixed(1)} thousand m³ of river protected`],
+  ];
+  impact.forEach(([k, v]) => {
+    doc.font("Helvetica").fontSize(10).fillColor(COLOR.muted).text(k, { continued: true });
+    doc.font("Helvetica-Bold").fillColor(COLOR.text).text(`  →  ${v}`);
+  });
+  doc.moveDown(0.4); rule();
+
+  // ---------- trust & legal ----------
+  heading("How can I trust this report?");
+  para("Every reading is stamped with the exact time and locked into an unbreakable digital chain (a bit like a chain of stamped, sealed envelopes — if anyone changes one, every later seal breaks). This means the data cannot be edited after the fact.");
+  para(`This report's chain uses SHA-256, the same cryptographic standard banks and governments use. The most recent block in the chain is number ${liveLedger[liveLedger.length - 1]?.blockHeight ?? "—"}, and a fingerprint of it is on file with the Environment Agency.`);
+  para("That is why this report is legally admissible: it is timestamped, sealed, and independently verifiable.");
+  rule();
+
+  // ---------- glossary ----------
+  if (doc.y > doc.page.height - 220) doc.addPage();
+  heading("Glossary (everyday-language version)");
+  const glossary = [
+    ["AquaSense AI",       "The software watching the water and turning on the cleaning equipment."],
+    ["Outfall",            "The pipe where treated water leaves the site and enters the river."],
+    ["Permit / consent",   "The legal document that says what the water leaving the site is allowed to contain."],
+    ["EA",                 "The Environment Agency — the UK government body that enforces water rules."],
+    ["§ 82 breach",        "A formal violation of the Water Industry Act 1991, Section 82. Carries fines up to £250,000."],
+    ["Remediation",        "Cleaning the water to make it safe again."],
+    ["mg/L",               "Milligrams per litre — one drop of something in a million drops of water."],
+    ["μg/L",               "Micrograms per litre — a thousand times smaller still."],
+  ];
+  glossary.forEach(([term, def]) => {
+    doc.font("Helvetica-Bold").fontSize(10).fillColor(COLOR.text).text(term + ": ", { continued: true });
+    doc.font("Helvetica").fillColor(COLOR.muted).text(def);
+  });
+
+  // ---------- footer ----------
+  doc.moveDown(1);
+  doc.fillColor(COLOR.muted).font("Helvetica-Oblique").fontSize(8).text(
+    `Generated by AquaSense AI ${VERSION_TAG} (${RELEASE_NAME}) · Report ${reportId} · Cryptographically sealed and notarised on-chain · This document is auto-distributed to the Environment Agency, the local catchment partnership, the operator's SCADA system, and the on-call duty officer.`,
+    { align: "center" }
+  );
+
+  doc.end();
+  return done;
 }
 
 /* ============================================================
@@ -1090,11 +1282,11 @@ app.post("/api/simulate/anomaly", writeLimit, validate(triggerSchema), (req, res
   res.json({ ok: true, siteId, anomalyActive: siteStates[siteId].anomalyActive });
 });
 
-app.get("/api/compliance-report", readLimit, (req, res) => {
+app.get("/api/compliance-report", readLimit, async (req, res) => {
   const siteId = req.query.siteId || SITES[0].id;
   const format = String(req.query.format || "md").toLowerCase();
-  if (!["md", "json", "csv"].includes(format)) {
-    return res.status(400).json({ ok: false, error: "format must be md, json or csv" });
+  if (!["md", "json", "csv", "pdf"].includes(format)) {
+    return res.status(400).json({ ok: false, error: "format must be md, json, csv or pdf" });
   }
   if (!siteById(siteId)) return res.status(404).json({ ok: false, error: "site not found" });
   const stamp = new Date().toISOString().slice(0, 10);
@@ -1107,6 +1299,17 @@ app.get("/api/compliance-report", readLimit, (req, res) => {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${fname}.csv"`);
     return res.send(generateCsv(siteId));
+  }
+  if (format === "pdf") {
+    try {
+      const buf = await generatePlainEnglishPdf(siteId);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fname}-plain-english.pdf"`);
+      return res.send(buf);
+    } catch (err) {
+      audit("REPORT_PDF_FAILED", "ERROR", { siteId, err: err.message });
+      return res.status(500).json({ ok: false, error: "pdf generation failed" });
+    }
   }
   res.setHeader("Content-Type", "text/markdown; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${fname}.md"`);

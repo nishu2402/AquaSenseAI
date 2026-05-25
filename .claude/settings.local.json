@@ -30,7 +30,18 @@
       "Bash(pkill -f \"vite\")",
       "Bash(curl -s -o /dev/null -w \"telemetry:%{http_code}\\\\n\" http://localhost:4000/api/telemetry)",
       "Bash(curl -s -o /dev/null -w \"sites:%{http_code}\\\\n\" http://localhost:4000/api/sites)",
-      "Bash(curl -s -o /dev/null -w \"via-proxy:%{http_code}\\\\n\" http://localhost:5173/api/telemetry)"
+      "Bash(curl -s -o /dev/null -w \"via-proxy:%{http_code}\\\\n\" http://localhost:5173/api/telemetry)",
+      "Bash(curl -s http://localhost:4000/api/state)",
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"start\",\"siteId\":\"TV-04\"}' http://localhost:4000/api/simulate/anomaly)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('anomalyActive:',d['anomalyActive']\\); print\\('healthScore:',d['healthScore']\\); print\\('reading: not in /state'\\); \")",
+      "Bash(curl -s http://localhost:4000/api/telemetry)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"stop\",\"siteId\":\"TV-04\"}' http://localhost:4000/api/simulate/anomaly)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('anomalyActive:',d['anomalyActive']\\); print\\('anomalyProgress:',d['anomalyProgress']\\); print\\('healthScore:',d['healthScore']\\)\")",
+      "Bash(node -e \"const PDF = require\\('pdfkit'\\); const d = new PDF\\(\\); d.text\\('hello'\\); d.end\\(\\); console.log\\('OK'\\)\")",
+      "Bash(curl -s -o /tmp/test.pdf -w \"status:%{http_code} bytes:%{size_download} type:%{content_type}\\\\n\" \"http://localhost:4000/api/compliance-report?format=pdf&siteId=TV-04\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -X POST -H \"Content-Type: application/json\" -d '{\"action\":\"stop\",\"siteId\":\"TV-04\"}' http://localhost:4000/api/simulate/anomaly > /dev/null; rm -f /tmp/test.pdf /tmp/vite_out.log /tmp/backend.log /tmp/frontend.log; echo cleaned)"
     ]
   }
 }

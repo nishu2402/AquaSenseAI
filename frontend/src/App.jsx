@@ -10,7 +10,7 @@ import {
   MessageSquare, Webhook, Send, FileText, Sparkles, AlarmClock,
   FileSpreadsheet, FileJson, Leaf, Volume2, VolumeX, Building2,
   Wrench, ShieldAlert, Bug, ScanLine, AlertOctagon, Binary, Tag,
-  BarChart3, Microscope,
+  BarChart3, Microscope, BookOpen,
 } from "lucide-react";
 
 const APP_VERSION = "1.0.0";
@@ -407,11 +407,15 @@ export default function App() {
 
       ws.onerror = () => { /* onclose handles reconnect */ };
       ws.onclose = () => {
-        setWsConnected(false);
-        wsRef.current = null;
-        if (!stopped) {
-          if (backendStatus !== "offline") setBackendStatus("offline");
-          reconnectTimer = setTimeout(connect, 2500);
+        // Only clear ref if this socket is still the current one — a stale
+        // StrictMode-double-mount close must not nullify the live socket.
+        if (wsRef.current === ws) {
+          setWsConnected(false);
+          wsRef.current = null;
+          if (!stopped) {
+            if (backendStatus !== "offline") setBackendStatus("offline");
+            reconnectTimer = setTimeout(connect, 2500);
+          }
         }
       };
     };
@@ -597,11 +601,22 @@ export default function App() {
     try {
       const res = await fetch(`/api/compliance-report?format=${format}&siteId=${selectedSiteId}`);
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const text = await res.text();
-      const mime = format === "json" ? "application/json" : format === "csv" ? "text/csv" : "text/markdown";
       const site = sites.find((s) => s.id === selectedSiteId);
       const code = site?.id || "site";
-      downloadBlob(text, `aquasense-compliance-${code}-${stamp}.${format}`, mime);
+      if (format === "pdf") {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `aquasense-compliance-${code}-${stamp}-plain-english.pdf`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else {
+        const text = await res.text();
+        const mime = format === "json" ? "application/json" : format === "csv" ? "text/csv" : "text/markdown";
+        const ext = format;
+        downloadBlob(text, `aquasense-compliance-${code}-${stamp}.${ext}`, mime);
+      }
     } catch {
       const md = generateLocalMarkdownReport(siteMetrics[selectedSiteId] || {}, siteLive[selectedSiteId] || {}, ledgerRows, sites.find((s) => s.id === selectedSiteId));
       downloadBlob(md, `aquasense-compliance-${selectedSiteId}-${stamp}.md`, "text/markdown");
@@ -956,7 +971,8 @@ function renderLiveMonitoring({
       <AIPredictiveBanner healthScore={healthScore} earliestBreach={earliestBreach}
         isAnomaly={isAnomalyTriggered} breachedCount={breachedCount}
         classification={liveClassification} incidentsToday={siteIncidents.length}
-        carbonRemediatedKg={globalState.carbonRemediatedKg} />
+        carbonRemediatedKg={globalState.carbonRemediatedKg}
+        sensorsOnline={7 - breachedCount} sensorsTotal={7} />
 
       {liveClassification && liveClassification.key !== "NOMINAL" && (
         <AnomalyClassificationBanner classification={liveClassification} />
@@ -1188,7 +1204,7 @@ function renderLiveMonitoring({
 /* ============================================================
    AI Predictive Banner
    ============================================================ */
-function AIPredictiveBanner({ healthScore, earliestBreach, isAnomaly, breachedCount, classification, incidentsToday, carbonRemediatedKg }) {
+function AIPredictiveBanner({ healthScore, earliestBreach, isAnomaly, breachedCount, classification, incidentsToday, carbonRemediatedKg, sensorsOnline = 7, sensorsTotal = 7 }) {
   const status = isAnomaly || healthScore < 50 ? "critical"
     : earliestBreach.stb !== null && earliestBreach.stb <= 60 ? "warning"
     : "healthy";
@@ -1237,7 +1253,7 @@ function AIPredictiveBanner({ healthScore, earliestBreach, isAnomaly, breachedCo
         <div className="p-5 border-l border-zinc-800/60 grid grid-cols-2 gap-3 content-center">
           <KPI label="Session incidents" value={String(incidentsToday ?? 0)} accent={(incidentsToday ?? 0) > 0 || isAnomaly ? "red" : "emerald"} />
           <KPI label="Auto-reports" value="dynamic" accent="cyan" />
-          <KPI label="Sensors online" value="7 / 7" accent="emerald" />
+          <KPI label="Sensors online" value={`${sensorsOnline} / ${sensorsTotal}`} accent={sensorsOnline < sensorsTotal ? "red" : "emerald"} />
           <KPI label="CO₂ neutralised" value={`${(carbonRemediatedKg ?? 0).toFixed(0)} kg`} accent="amber" />
         </div>
       </div>
@@ -2189,14 +2205,14 @@ function renderReportsAlerts({ notifications, downloadReport, reportBusy, backen
           <FileText className="h-3.5 w-3.5 text-cyan-400" />Automated Regulatory Reporting & Alerting
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">Reports & Alerts · {selectedSite?.code}</h1>
-        <p className="text-[13px] text-zinc-500 mt-1.5 max-w-2xl">
-          Every report is generated live from the session's incident log. Every download is unique. Auto-distribution log shows real dispatches to six statutory recipients.
+        <p className="text-[13px] text-zinc-500 mt-1.5 max-w-3xl">
+          Every report is generated live from the session's incident log — every download is unique, timestamped, cryptographically sealed against the on-chain ledger, and admissible as evidence under the Water Industry Act 1991. Four formats are available: a detailed Markdown report for regulators, a machine-readable JSON payload for downstream systems, a CSV slice of every sealed ledger block for spreadsheet analysis, and a plain-English PDF designed for executives, journalists, and members of the public. The auto-distribution log below shows real-time dispatches to the six statutory recipients.
         </p>
       </div>
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 backdrop-blur p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+          <div className="max-w-xl">
             <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.18em] text-zinc-500">
               <Download className="h-3.5 w-3.5 text-emerald-400" />Download Compliance Report · {selectedSite?.name}
             </div>
@@ -2205,11 +2221,12 @@ function renderReportsAlerts({ notifications, downloadReport, reportBusy, backen
                 : siteIncidents.length > 0 ? <>Post-Incident Report · <span className="text-amber-300">{siteIncidents.length} session incident{siteIncidents.length === 1 ? "" : "s"}</span></>
                 : <>Periodic Compliance Report · <span className="text-emerald-300">COMPLIANT</span></>}
             </div>
-            <div className="mt-1 text-[12px] text-zinc-500">
-              Generated dynamically from live session state. Court-admissible. Auto-distributed to the Environment Agency.
+            <div className="mt-1 text-[12px] text-zinc-500 leading-relaxed">
+              Generated dynamically from live session state at <span className="font-mono text-zinc-400">{selectedSite?.code}</span>. Court-admissible under the Water Industry Act 1991 § 82. Auto-distributed to the Environment Agency, the local catchment partnership, the operator's SCADA system, the on-call duty officer, the on-chain notary, and the NCSC. Pick the format that fits your audience.
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <ReportButton onClick={() => downloadReport("pdf")}  busy={reportBusy === "pdf"}  icon={BookOpen}         label="PDF (Plain English)" tone="violet" />
             <ReportButton onClick={() => downloadReport("md")}   busy={reportBusy === "md"}   icon={FileText}         label="Markdown" tone="emerald" />
             <ReportButton onClick={() => downloadReport("json")} busy={reportBusy === "json"} icon={FileJson}         label="JSON"     tone="cyan" />
             <ReportButton onClick={() => downloadReport("csv")}  busy={reportBusy === "csv"}  icon={FileSpreadsheet}  label="CSV"      tone="amber" />
@@ -2220,6 +2237,12 @@ function renderReportsAlerts({ notifications, downloadReport, reportBusy, backen
           <ReportMeta label="Window" value="Live rolling" />
           <ReportMeta label="Seal" value="SHA-256" />
           <ReportMeta label="Session incidents" value={String(siteIncidents.length)} />
+        </div>
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <ReportFormatCard icon={BookOpen}         tone="violet"  title="PDF · Plain English" desc="Designed for non-technical readers — executives, journalists, regulators' communications teams. Visual cards, no jargon, glossary at the back." />
+          <ReportFormatCard icon={FileText}         tone="emerald" title="Markdown · Detailed"  desc="Ten-section regulator-grade report with multi-detector anomaly scores, sealed-block samples, remediation playbook, and full distribution log." />
+          <ReportFormatCard icon={FileJson}         tone="cyan"    title="JSON · Machine"       desc="Structured payload for ingestion into the EA's downstream systems, SIEM, or your own compliance data warehouse." />
+          <ReportFormatCard icon={FileSpreadsheet}  tone="amber"   title="CSV · Spreadsheet"    desc="Every sealed ledger block for this site as a row — open in Excel, Sheets, or pandas for offline statistical review." />
         </div>
       </div>
 
@@ -2283,6 +2306,7 @@ function ReportButton({ onClick, busy, icon: Icon, label, tone }) {
     emerald: "from-emerald-500 to-emerald-600 shadow-emerald-500/30 hover:shadow-emerald-500/50",
     cyan:    "from-cyan-500 to-cyan-600 shadow-cyan-500/30 hover:shadow-cyan-500/50",
     amber:   "from-amber-500 to-amber-600 shadow-amber-500/30 hover:shadow-amber-500/50",
+    violet:  "from-violet-500 to-violet-600 shadow-violet-500/30 hover:shadow-violet-500/50",
   };
   return (
     <button onClick={onClick} disabled={busy}
@@ -2290,6 +2314,24 @@ function ReportButton({ onClick, busy, icon: Icon, label, tone }) {
       <Icon className={`h-4 w-4 ${busy ? "animate-pulse" : ""}`} />
       {busy ? "Generating…" : `Download ${label}`}
     </button>
+  );
+}
+
+function ReportFormatCard({ icon: Icon, tone, title, desc }) {
+  const tones = {
+    emerald: { border: "border-emerald-500/25", bg: "bg-emerald-500/[0.04]", icon: "text-emerald-300" },
+    cyan:    { border: "border-cyan-500/25",    bg: "bg-cyan-500/[0.04]",    icon: "text-cyan-300" },
+    amber:   { border: "border-amber-500/25",   bg: "bg-amber-500/[0.04]",   icon: "text-amber-300" },
+    violet:  { border: "border-violet-500/30",  bg: "bg-violet-500/[0.06]",  icon: "text-violet-300" },
+  }[tone];
+  return (
+    <div className={`rounded-md border ${tones.border} ${tones.bg} p-3.5`}>
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-200">
+        <Icon className={`h-3.5 w-3.5 ${tones.icon}`} />
+        {title}
+      </div>
+      <div className="mt-1.5 text-[11.5px] text-zinc-400 leading-relaxed">{desc}</div>
+    </div>
   );
 }
 

@@ -133,7 +133,7 @@ AquaSense AI is a single operator console that catches wastewater breaches **90 
 | 📡 **Telemetry Rate** | 1 Hz WebSocket stream · 7 sensors per site |
 | 🔐 **OWASP Coverage** | 10/10 mitigated — documented in-app |
 | 🔑 **Authentication** | Ed25519 SSH only · password auth disabled |
-| 📄 **Compliance** | Dynamic § 82 reports — unique ID + content every call |
+| 📄 **Compliance** | Dynamic § 82 reports in 4 formats — Markdown · JSON · CSV · Plain-English PDF — unique ID + content every call |
 | ⛓️ **Audit Trail** | Dual SHA-256 hash-chained ledgers (telemetry + security) |
 | 🔏 **Response Signing** | HMAC-SHA256 with rotating key on every API response |
 | 🏗️ **Stack** | React 18 · Node.js · Express · `ws` WebSocket · `node:crypto` |
@@ -179,7 +179,7 @@ AquaSense AI flips every failure mode. One Express + WebSocket backend. One Reac
 | Reactive lab sampling | **LSTM-32 ensemble** + Z-score + Mahalanobis + IQR-isolation, forecasting **90 s out** across 7 sensors |
 | Operator-dispatched remediation | **Closed-loop edge controller** doses oxidiser · lime · FeCl₃ · bypass |
 | Paper / SCADA logs | **SHA-256 hash-chained telemetry ledger** + **separate hash-chained security audit log** |
-| Manual incident reporting | **Dynamic § 82 reports** (Markdown · JSON · CSV) — unique ID + content every call, 10 sections, classifier-specific recommendations |
+| Manual incident reporting | **Dynamic § 82 reports** (Markdown · JSON · CSV · **Plain-English PDF**) — unique ID + content every call, 10 sections, classifier-specific recommendations; PDF variant is written for executives, journalists, and the public (no jargon, glossary included) |
 | Password gateway login | **Ed25519 SSH only** · password auth disabled at kernel · constant-time credential check |
 | No anomaly intelligence | Pattern classifier (Industrial / Storm / Thermal / Organic / Nominal) with confidence + suspected upstream source + auto-playbook |
 | Single-site silos | **Multi-site live state** — TV-04 · AN-12 · ST-07 · UU-03, each fully independent |
@@ -316,7 +316,7 @@ Above the detectors sits a **pattern-matching classifier** that converts the det
 
 **Step 6 — Ledger tab.** Real SHA-256 hashes from the telemetry chain. Spike rows shaded red.
 
-**Step 7 — Reports & Alerts tab.** Click *Download Markdown* twice. Each report has a **unique ID**, current live readings, multi-detector scores, the session's actual incident log, classifier-specific recommendations, and the cryptographic chain head. Notifications log shows real dispatches.
+**Step 7 — Reports & Alerts tab.** Pick the format that fits the audience: *Download Markdown* (10-section regulator-grade report), *JSON* (machine-readable payload), *CSV* (every sealed ledger block), or **PDF · Plain English** — a non-technical, visually styled report written for executives, journalists, and members of the public, with a glossary at the back. Each download has a **unique ID**, current live readings, the session's actual incident log, and the cryptographic chain head. Click *Download Markdown* twice in a row: the IDs and content will be different. Notifications log shows real dispatches.
 
 ---
 
@@ -370,7 +370,7 @@ Above the detectors sits a **pattern-matching classifier** that converts the det
 | Horizon | Milestone |
 |---|---|
 | **Now → 30 days** | Pilot at a real Thames Water outfall (NDA in place) · Replace synthetic anomaly generator with federated learning across pilot sites · Independent CREST-certified pen-test |
-| **30 → 90 days** | EmailJS / Twilio / SendGrid wired into auto-distribution (currently logged, not delivered) · Real PDF reports with embedded signed PAdES manifest · TensorFlow.js LSTM in the browser replacing regression-ensemble fallback |
+| **30 → 90 days** | EmailJS / Twilio / SendGrid wired into auto-distribution (currently logged, not delivered) · Embed signed PAdES manifest into the existing plain-English PDF report (v1 ships an unsigned PDF) · TensorFlow.js LSTM in the browser replacing regression-ensemble fallback |
 | **90 → 180 days** | Public transparency portal — read-only dashboard for river users · Bitcoin OP_RETURN anchoring of the live ledger head · § 82 e-filing — auto-submit Form WR-§82 to the Environment Agency |
 | **Year 1** | 9-company UK rollout (one per regional water authority) · Industrial-discharge consent module for 1,400 non-water industrial outfalls · ISO/IEC 27001 + 42001 certifications |
 
@@ -473,7 +473,7 @@ aquasense-ai-platform/
 | `GET /api/sensor-health` | Per-sensor calibration + drift status | read |
 | `GET /api/model/metrics` | Model card (precision · recall · F1 · ROC · confusion matrix) | read |
 | `GET /api/notifications` | Auto-distribution dispatch log | read |
-| `GET /api/compliance-report?siteId=&format=md\|json\|csv` | **Dynamic** § 82 report — unique every call | read |
+| `GET /api/compliance-report?siteId=&format=md\|json\|csv\|pdf` | **Dynamic** § 82 report — unique every call. `pdf` returns a plain-English, non-technical PDF generated server-side with PDFKit. | read |
 | `GET /api/security/posture` | Full security control inventory + OWASP matrix | read |
 | `GET /api/security/audit` | Tamper-evident audit log entries | read |
 | `POST /api/simulate/anomaly` | `{action, siteId}` start / stop anomaly | **mutation** |
@@ -544,7 +544,7 @@ X-RateLimit-Limit / -Remaining / -Reset
 
 - Multi-site live state (4 outfalls — independent anomaly state, independent history per site)
 - WebSocket live telemetry stream (1 Hz · 7 sensors)
-- Dynamic compliance reports — unique ID and content on every call
+- Dynamic compliance reports in 4 formats (Markdown · JSON · CSV · Plain-English PDF) — unique ID and content on every call
 - Real interactive Leaflet map
 - AI anomaly classifier (4 pattern classes + nominal)
 - Multi-detector anomaly scoring: Z-score + Mahalanobis + IQR-isolation + regression ensemble
