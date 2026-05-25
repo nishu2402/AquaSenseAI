@@ -47,7 +47,11 @@
       "Bash(git -C .claude/worktrees/keen-panini-c739e8 log --oneline main..HEAD)",
       "Bash(git -C .claude/worktrees/keen-panini-c739e8 status --short)",
       "Bash(git worktree *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(node server.js)",
+      "Bash(xattr -l /Users/heaven/Downloads/AquaSenseAI/backend/node_modules/pdfkit/js/data/*.afm)",
+      "Bash(node -e \"const d = new \\(require\\('pdfkit'\\)\\)\\(\\); d.text\\('hi'\\); d.end\\(\\); console.log\\('pdfkit OK'\\)\")",
+      "Bash(lsof -iTCP -sTCP:LISTEN -nP)"
     ]
   }
 }

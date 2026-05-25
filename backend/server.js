@@ -1401,6 +1401,10 @@ const wss = new WebSocketServer({
     return cb(false, 403, "Origin not allowed");
   },
 });
+// Swallow WSS errors here — the HTTP server's error handler (below) renders
+// a friendly EADDRINUSE message and exits. Without this listener, Node would
+// crash on the WSS' re-emitted error before our handler runs.
+wss.on("error", () => {});
 
 function broadcast(message) {
   const data = JSON.stringify(message);
@@ -1476,6 +1480,24 @@ setInterval(() => {
     notificationsCount: NOTIFICATIONS.length, auditDepth: AUDIT_LOG.length,
   });
 }, 1000);
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error("");
+    console.error(`${C.R}${C.BOLD}   ✗  Port ${PORT} is already in use.${C.X}`);
+    console.error(`${C.DIM}   ─────────────────────────────────────────────────────${C.X}`);
+    console.error(`   Another process is already listening on :${PORT} — most likely a previous`);
+    console.error(`   ${C.BOLD}npm run dev${C.X} that's still alive in another terminal or a stale orphan.`);
+    console.error("");
+    console.error(`   ${C.BOLD}Fix it with one of these:${C.X}`);
+    console.error(`     ${C.K}lsof -ti :${PORT} | xargs kill -9${C.X}     ${C.DIM}# kill whatever is on :${PORT}${C.X}`);
+    console.error(`     ${C.K}PORT=4001 npm run dev${C.X}              ${C.DIM}# run on a different port${C.X}`);
+    console.error("");
+    process.exit(1);
+  }
+  console.error(`${C.R}${C.BOLD}   ✗  Server error:${C.X} ${err.message}`);
+  process.exit(1);
+});
 
 server.listen(PORT, () => {
   console.log("");
