@@ -11,7 +11,26 @@
       "Bash(node shoot2.js)",
       "mcp__Claude_Preview__preview_start",
       "Bash(curl -s http://localhost:4000/api/health)",
-      "Bash(curl -s http://localhost:5173/)"
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(node -c server.js)",
+      "Bash(timeout 5 node server.js)",
+      "Bash(cat /tmp/vite_out.log 2>&1 | head -60)",
+      "Bash(node -e \"require\\('esbuild'\\)\")",
+      "Bash(node -e \"const esb=require\\('esbuild'\\); esb.transform\\('const x=1;',{loader:'ts'}\\).then\\(r=>console.log\\('OK',r.code\\)\\).catch\\(e=>console.log\\('ERR',e.message\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('esbuild/lib/main.js'\\).version\\)\")",
+      "Bash(node_modules/@esbuild/darwin-arm64/bin/esbuild --version)",
+      "Bash(echo \"---exit: $?\")",
+      "Bash(xattr -l node_modules/@esbuild/darwin-arm64/bin/esbuild)",
+      "Bash(codesign -dv node_modules/@esbuild/darwin-arm64/bin/esbuild)",
+      "Bash(xattr -dr com.apple.quarantine /Users/heaven/Downloads/AquaSenseAI/frontend/node_modules)",
+      "Bash(xattr -dr com.apple.quarantine /Users/heaven/Downloads/AquaSenseAI/backend/node_modules)",
+      "Bash(xattr -l /Users/heaven/Downloads/AquaSenseAI/frontend/node_modules/@esbuild/darwin-arm64/bin/esbuild)",
+      "Bash(/Users/heaven/Downloads/AquaSenseAI/frontend/node_modules/@esbuild/darwin-arm64/bin/esbuild --version)",
+      "Bash(pkill -f \"node.*server.js\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s -o /dev/null -w \"telemetry:%{http_code}\\\\n\" http://localhost:4000/api/telemetry)",
+      "Bash(curl -s -o /dev/null -w \"sites:%{http_code}\\\\n\" http://localhost:4000/api/sites)",
+      "Bash(curl -s -o /dev/null -w \"via-proxy:%{http_code}\\\\n\" http://localhost:5173/api/telemetry)"
     ]
   }
 }
